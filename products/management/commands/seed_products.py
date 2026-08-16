@@ -1,10 +1,3 @@
-"""Insert a handful of sample products so the API has something to return.
-
-Usage:
-    python manage.py seed_products
-    python manage.py seed_products --flush   # wipe existing rows first
-"""
-
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand

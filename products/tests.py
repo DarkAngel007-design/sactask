@@ -1,11 +1,3 @@
-"""Automated tests for the Product API.
-
-Run with:  python manage.py test
-
-Each test runs inside a transaction against a throwaway test database, so the
-tests never touch db.sqlite3 and never depend on each other's data.
-"""
-
 from decimal import Decimal
 
 from django.urls import reverse
@@ -16,8 +8,6 @@ from .models import Product
 
 
 class ProductCRUDTests(APITestCase):
-    """The five basic operations: list, retrieve, create, update, delete."""
-
     def setUp(self):
         self.keyboard = Product.objects.create(
             name='Mechanical Keyboard',
@@ -73,11 +63,11 @@ class ProductCRUDTests(APITestCase):
 
     def test_create_rejects_missing_and_invalid_fields(self):
         cases = [
-            ({}, 'name'),                                            # nothing at all
-            ({'name': '   ', 'price': '10.00'}, 'name'),             # blank name
-            ({'name': 'X', 'price': '-5.00'}, 'price'),              # negative price
-            ({'name': 'X', 'price': 'abc'}, 'price'),                # not a number
-            ({'name': 'X', 'price': '10.00', 'stock': -1}, 'stock'),  # negative stock
+            ({}, 'name'),
+            ({'name': '   ', 'price': '10.00'}, 'name'),
+            ({'name': 'X', 'price': '-5.00'}, 'price'),
+            ({'name': 'X', 'price': 'abc'}, 'price'),
+            ({'name': 'X', 'price': '10.00', 'stock': -1}, 'stock'),
         ]
 
         for payload, expected_error_field in cases:
@@ -125,7 +115,7 @@ class ProductCRUDTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.keyboard.refresh_from_db()
         self.assertEqual(self.keyboard.stock, 99)
-        self.assertEqual(self.keyboard.name, 'Mechanical Keyboard')  # untouched
+        self.assertEqual(self.keyboard.name, 'Mechanical Keyboard')
 
     def test_delete_removes_the_product(self):
         response = self.client.delete(
@@ -142,8 +132,6 @@ class ProductCRUDTests(APITestCase):
 
 
 class ProductSearchAndFilterTests(APITestCase):
-    """?search=, ?min_price=, ?max_price= and their error cases."""
-
     def setUp(self):
         Product.objects.create(name='Wireless Mouse', price=Decimal('799.00'), stock=10)
         Product.objects.create(name='Wireless Keyboard', price=Decimal('1500.00'), stock=10)
@@ -232,8 +220,6 @@ class PaginationTests(APITestCase):
 
 
 class PurchaseTests(APITestCase):
-    """POST /api/products/{id}/purchase/"""
-
     def setUp(self):
         self.product = Product.objects.create(
             name='Portable SSD 1TB', price=Decimal('7499.00'), stock=10

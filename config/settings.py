@@ -20,16 +20,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-# Read from the environment so a real deployment can supply its own secret,
-# while local development still works with no configuration at all.
-SECRET_KEY = os.environ.get(
-    'DJANGO_SECRET_KEY',
-    'django-insecure-dev-only-key-do-not-use-in-production',
-)
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-dev-key-change-me')
 
+# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'true').lower() == 'true'
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 
 # Application definition
@@ -41,11 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # Third-party
     'rest_framework',
-
-    # Local
     'products',
 ]
 
@@ -137,13 +130,7 @@ MAILERS = {
 }
 
 
-# Django REST Framework
-# https://www.django-rest-framework.org/api-guide/settings/
-
 REST_FRAMEWORK = {
-    # Every list endpoint is paginated by default (see products/pagination.py).
     'DEFAULT_PAGINATION_CLASS': 'products.pagination.ProductPagination',
     'PAGE_SIZE': 10,
 }
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
