@@ -259,60 +259,6 @@ curl -X POST "http://127.0.0.1:8000/api/products/1/purchase/" \
 
 Keys are scoped per user. Any unique string works; a UUID is a good choice.
 
-## Rate limits
-
-| Scope | Default |
-|---|---|
-| Anonymous requests | 60/min |
-| Signed-in requests | 240/min |
-| Purchases | 10/min |
-
-Exceeding a limit returns `429 Too Many Requests`. All three are configurable in
-`.env`.
-
-## Errors
-
-| Situation | Status |
-|---|---|
-| Missing or invalid field on create | 400 |
-| Blank name | 400 |
-| Negative price or stock | 400 |
-| `?min_price=abc` or a negative price filter | 400 |
-| `min_price` greater than `max_price` | 400 |
-| Purchase quantity of 0, negative, or not a number | 400 |
-| Purchase quantity greater than stock | 400 |
-| No token on an endpoint that needs one | 401 |
-| Signed in but not allowed (non-staff writing) | 403 |
-| Product id does not exist | 404 |
-| Page number past the last page | 404 |
-| Wrong method, e.g. GET on the purchase URL | 405 |
-| Deleting a product that has orders | 409 |
-| Rate limit exceeded | 429 |
-
-Errors come back as JSON, for example:
-
-```json
-{"quantity": ["Ensure this value is greater than or equal to 1."]}
-```
-
-## Configuration
-
-Every setting has a development-safe default. Copy `.env.example` to `.env` to
-change any of them.
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `DJANGO_SECRET_KEY` | dev key | Required when `DJANGO_DEBUG=False` |
-| `DJANGO_DEBUG` | `True` | Turn off in production |
-| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | Hostnames the app answers on |
-| `DATABASE_URL` | SQLite file | e.g. `postgres://user:pass@host:5432/db` |
-| `DJANGO_THROTTLE_*` | see above | Rate limits |
-| `DJANGO_ACCESS_TOKEN_MINUTES` | `30` | Access token lifetime |
-
-When `DJANGO_DEBUG=False`, the app refuses to start without a real
-`DJANGO_SECRET_KEY` and a real `DJANGO_ALLOWED_HOSTS`, rather than falling back to
-insecure values.
-
 ## Running with PostgreSQL
 
 SQLite is fine for development, but it does not support row-level locking, which
@@ -332,6 +278,10 @@ In production, serve it with gunicorn behind a reverse proxy rather than
 python manage.py collectstatic --noinput
 gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
 ```
+
+With `DJANGO_DEBUG=False` the app will not start unless `DJANGO_SECRET_KEY` and
+`DJANGO_ALLOWED_HOSTS` are set, rather than falling back to insecure defaults.
+`.env.example` lists every available setting.
 
 ## Tests
 
