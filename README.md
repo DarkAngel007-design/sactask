@@ -316,21 +316,21 @@ insecure values.
 ## Running with PostgreSQL
 
 SQLite is fine for development, but it does not support row-level locking, which
-the purchase endpoint relies on to prevent overselling. Use PostgreSQL for
-anything real:
-
-```bash
-export DJANGO_SECRET_KEY=$(python -c "from django.core.management.utils import get_random_secret_key as k; print(k())")
-docker compose up --build
-```
-
-That starts PostgreSQL and the app behind gunicorn on http://localhost:8000.
-
-Or point at your own database:
+the purchase endpoint relies on to prevent overselling. Point `DATABASE_URL` at
+PostgreSQL for anything real — no other change is needed:
 
 ```bash
 export DATABASE_URL=postgres://user:pass@localhost:5432/product_api
 python manage.py migrate
+python manage.py test        # the concurrency test now runs instead of skipping
+```
+
+In production, serve it with gunicorn behind a reverse proxy rather than
+`runserver`:
+
+```bash
+python manage.py collectstatic --noinput
+gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3
 ```
 
 ## Tests
@@ -380,8 +380,6 @@ products/
   pagination.py  pagination settings
   urls.py        router and auth routes
   tests.py       tests
-Dockerfile
-docker-compose.yml
 .github/workflows/ci.yml
 manage.py
 requirements.txt
