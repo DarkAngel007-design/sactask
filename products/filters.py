@@ -6,8 +6,8 @@ from rest_framework.exceptions import ValidationError
 def parse_price(raw, field_name):
     try:
         value = Decimal(raw)
-    except (InvalidOperation, TypeError, ValueError):
-        raise ValidationError({field_name: f"'{raw}' is not a valid number."})
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValidationError({field_name: f"'{raw}' is not a valid number."}) from exc
 
     if not value.is_finite():
         raise ValidationError({field_name: f"'{raw}' is not a valid number."})

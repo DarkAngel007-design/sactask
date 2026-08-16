@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+
+  test-sqlite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements-dev.txt
+      - run: python manage.py test
+
+  test-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: product_api
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/product_api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements-dev.txt
+      # The concurrency test only runs here, where row locking is real.
+      - run: python manage.py test
+
+  deployment-checks:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_DEBUG: 'False'
+      DJANGO_ALLOWED_HOSTS: example.com
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install -r requirements-dev.txt
+      # Generated per run, so no placeholder secret is committed.
+      - name: Generate a throwaway secret key
+        run: |
+          KEY=$(python -c 'from django.core.management.utils import get_random_secret_key as k; print(k())')
+          echo "DJANGO_SECRET_KEY=$KEY" >> "$GITHUB_ENV"
+      - run: python manage.py check --deploy --fail-level WARNING
+      - run: python manage.py makemigrations --check --dry-run
