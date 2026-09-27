@@ -21,6 +21,14 @@ class PurchaseSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1)
 
 
+class ProductStatsSerializer(serializers.Serializer):
+    total_orders = serializers.IntegerField()
+    total_units_sold = serializers.IntegerField()
+    # No max_digits: lifetime revenue can grow past any single order's size.
+    total_revenue = serializers.DecimalField(max_digits=None, decimal_places=2)
+    average_order_size = serializers.FloatField()
+
+
 class OrderSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     remaining_stock = serializers.IntegerField(source='product.stock', read_only=True)

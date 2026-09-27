@@ -549,6 +549,100 @@ class OrderHistoryTests(ApiTestCase):
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
+class ProductStatsTests(ApiTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.ssd = Product.objects.create(
+            name='Portable SSD 1TB', price=Decimal('7499.00'), stock=100
+        )
+        self.url = reverse('product-stats', args=[self.ssd.id])
+
+    def _order(self, product, quantity, user=None):
+        return Order.objects.create(
+            product=product, user=user or self.shopper, quantity=quantity,
+            unit_price=product.price, total_price=product.price * quantity,
+        )
+
+    def test_staff_get_totals_for_the_product(self):
+        for quantity in [5, 5, 5, 4, 4]:
+            self._order(self.ssd, quantity)
+        self.as_staff()
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {
+            'total_orders': 5,
+            'total_units_sold': 23,
+            'total_revenue': '172477.00',
+            'average_order_size': 4.6,
+        })
+
+    def test_revenue_uses_the_price_paid_not_the_current_price(self):
+        self._order(self.ssd, 2)
+        self.ssd.price = Decimal('1.00')
+        self.ssd.save(update_fields=['price'])
+        self.as_staff()
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.data['total_revenue'], '14998.00')
+
+    def test_only_this_products_orders_are_counted(self):
+        other = Product.objects.create(name='Mouse', price=Decimal('799.00'), stock=10)
+        self._order(self.ssd, 3)
+        self._order(other, 7, user=self.staff)
+        self.as_staff()
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.data['total_orders'], 1)
+        self.assertEqual(response.data['total_units_sold'], 3)
+
+    def test_product_without_orders_returns_zeros(self):
+        self.as_staff()
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, {
+            'total_orders': 0,
+            'total_units_sold': 0,
+            'total_revenue': '0.00',
+            'average_order_size': 0.0,
+        })
+
+    def test_stats_are_staff_only(self):
+        self.assertEqual(self.client.get(self.url).status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.as_shopper()
+        self.assertEqual(self.client.get(self.url).status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unknown_product_returns_404(self):
+        self.as_staff()
+
+        response = self.client.get(reverse('product-stats', args=[9999]))
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_stats_only_accept_get(self):
+        self.as_staff()
+
+        response = self.client.post(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_stats_run_in_two_queries(self):
+        for quantity in [1, 2, 3]:
+            self._order(self.ssd, quantity)
+        self.as_staff()
+
+        # One query for the product (404 check) and one aggregate over its orders.
+        with self.assertNumQueries(2):
+            self.client.get(self.url)
+
+
 class ThrottleTests(ApiTestCase):
 
     def setUp(self):

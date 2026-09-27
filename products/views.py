@@ -1,7 +1,7 @@
 import logging
 
 from django.db import DatabaseError, IntegrityError, connection, transaction
-from django.db.models import ProtectedError
+from django.db.models import Count, ProtectedError, Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
@@ -11,7 +11,9 @@ from .filters import filter_products
 from .models import Order, Product
 from .pagination import ProductPagination
 from .permissions import ReadOnlyOrAdmin
-from .serializers import OrderSerializer, ProductSerializer, PurchaseSerializer
+from .serializers import (
+    OrderSerializer, ProductSerializer, ProductStatsSerializer, PurchaseSerializer,
+)
 from .throttling import PurchaseRateThrottle
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,8 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == 'purchase':
             return [permissions.IsAuthenticated()]
+        if self.action == 'stats':
+            return [permissions.IsAdminUser()]
         return [ReadOnlyOrAdmin()]
 
     def get_queryset(self):
@@ -95,6 +99,25 @@ class ProductViewSet(viewsets.ModelViewSet):
             order.id, request.user.id, product.id, quantity,
         )
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['get'])
+    def stats(self, request, pk=None):
+        product = get_object_or_404(Product, pk=pk)
+        totals = product.orders.aggregate(
+            total_orders=Count('id'),
+            total_units_sold=Sum('quantity'),
+            total_revenue=Sum('total_price'),
+        )
+        # Sum() returns None when the product has no orders.
+        total_orders = totals['total_orders']
+        total_units_sold = totals['total_units_sold'] or 0
+        stats = {
+            'total_orders': total_orders,
+            'total_units_sold': total_units_sold,
+            'total_revenue': totals['total_revenue'] or 0,
+            'average_order_size': total_units_sold / total_orders if total_orders else 0.0,
+        }
+        return Response(ProductStatsSerializer(stats).data)
 
 
 class OrderViewSet(viewsets.ReadOnlyModelViewSet):
