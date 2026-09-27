@@ -65,6 +65,7 @@ Access tokens last 30 minutes. Exchange a refresh token for a new one at
 | Purchase | no (401) | yes | yes |
 | View own orders | no (401) | yes | yes |
 | View everyone's orders | no | no | yes |
+| View a product's sales stats | no (401) | no (403) | yes |
 
 ## Product fields
 
@@ -92,6 +93,7 @@ not a float, to avoid rounding errors on money.
 | PATCH | `/api/products/{id}/` | staff | Update a product (some fields) |
 | DELETE | `/api/products/{id}/` | staff | Delete a product |
 | POST | `/api/products/{id}/purchase/` | user | Buy units and reduce stock |
+| GET | `/api/products/{id}/stats/` | staff | Sales totals for one product |
 | GET | `/api/orders/` | user | Purchase history |
 | GET | `/api/orders/{id}/` | user | One order |
 | POST | `/api/auth/token/` | none | Get an access and refresh token |
@@ -259,6 +261,26 @@ curl -X POST "http://127.0.0.1:8000/api/products/1/purchase/" \
 
 Keys are scoped per user. Any unique string works; a UUID is a good choice.
 
+### Product stats (staff)
+
+```bash
+curl "http://127.0.0.1:8000/api/products/7/stats/" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+```json
+{
+  "total_orders": 5,
+  "total_units_sold": 23,
+  "total_revenue": "172477.00",
+  "average_order_size": 4.6
+}
+```
+
+Computed from the product's orders in a single aggregate query. Revenue sums each
+order's stored `total_price`, so it reflects what customers actually paid even if
+the price changed later. A product with no orders returns zeros.
+
 ## Running with PostgreSQL
 
 SQLite is fine for development, but it does not support row-level locking, which
@@ -289,7 +311,7 @@ With `DJANGO_DEBUG=False` the app will not start unless `DJANGO_SECRET_KEY` and
 python manage.py test
 ```
 
-50 tests in `products/tests.py`:
+58 tests in `products/tests.py`:
 
 - `ProductCRUDTests` — list, get, create, update, delete, and their error cases
 - `PermissionTests` — who can read, write and purchase; JWT login
@@ -298,6 +320,7 @@ python manage.py test
 - `PurchaseTests` — successful purchase, buying all stock, overselling,
   invalid quantities, unknown product, wrong method
 - `IdempotencyTests` — replayed requests do not buy twice
+- `ProductStatsTests` — stats totals, zero orders, staff-only access, query count
 - `OrderHistoryTests` — users see only their own orders
 - `ThrottleTests` — the purchase rate limit
 - `HealthTests` — the health endpoint
@@ -323,7 +346,7 @@ config/          settings and root URLs
 products/
   models.py      Product and Order
   serializers.py validation and JSON conversion
-  views.py       ProductViewSet (CRUD + purchase), OrderViewSet, health
+  views.py       ProductViewSet (CRUD + purchase + stats), OrderViewSet, health
   permissions.py who is allowed to do what
   throttling.py  the purchase rate limit
   filters.py     search and price filtering
